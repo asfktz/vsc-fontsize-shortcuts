@@ -95,6 +95,12 @@
           "description":
             "The increment or decrement step for a font size change",
           "default": 1
+        },
+        "fontshortcuts.lineHeight": {
+          "type": "number",
+          "description":
+            "Relative lineHeight",
+          "default": 1.4
         }
       }
     },

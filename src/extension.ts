@@ -11,30 +11,31 @@ import {
 const minFontSize = 1;
 const maxFontSize = Number.MAX_SAFE_INTEGER;
 
-export function activate(context: ExtensionContext) {
-  async function increaseFontSize(terminal: boolean) {
-    const config = workspace.getConfiguration();
-    const fontSizeType = terminal
-      ? "terminal.integrated.fontSize"
-      : "editor.fontSize";
-    const fontSize = config.get<number>(fontSizeType);
-    const step = config.get<number>("fontshortcuts.step");
-    const newSize = Math.min(maxFontSize, Math.round(fontSize + step));
-    if (newSize === fontSize) return;
-    return config.update(fontSizeType, newSize, true);
-  }
+enum Dir { increase = 1, decrease = -1 };
+enum Env { editor = "editor", terminal = "terminal.integrated" }
 
-  async function decreaseFontSize(terminal: boolean) {
-    const config = workspace.getConfiguration();
-    const fontSizeType = terminal
-      ? "terminal.integrated.fontSize"
-      : "editor.fontSize";
-    const fontSize = config.get<number>(fontSizeType);
-    const step = config.get<number>("fontshortcuts.step");
-    const newSize = Math.max(minFontSize, Math.round(fontSize - step));
-    if (newSize === fontSize) return;
-    return config.update(fontSizeType, newSize, true);
-  }
+const updateFontSize = (env: Env, i: Dir) => () => {
+  const config = workspace.getConfiguration();
+  const fontSize = config.get<number>(`${env}.fontSize`);
+  const step = config.get<number>("fontshortcuts.step");
+  const lineHeight = config.get<number>("fontshortcuts.lineHeight");
+  const newSize = Math.min(maxFontSize, Math.round(fontSize + (step * i)));
+  
+  if (newSize === fontSize) return;
+
+  return Promise.all([
+    config.update(`${env}.lineHeight`, newSize * lineHeight, true),
+    config.update(`${env}.fontSize`, newSize, true)
+  ])
+}
+
+const increaseEditorFontSize = updateFontSize(Env.editor, Dir.increase);
+const decreaseEditorFontSize = updateFontSize(Env.editor, Dir.decrease);
+const increaseTerminalFontSize = updateFontSize(Env.terminal, Dir.increase);
+const decreaseTerminalFontSize = updateFontSize(Env.terminal, Dir.decrease);
+
+export function activate(context: ExtensionContext) {
+  const lineHeight = 1.4;
 
   async function resetFontSize(terminal: boolean) {
     const config = workspace.getConfiguration();
@@ -64,47 +65,43 @@ export function activate(context: ExtensionContext) {
     }
 
     window.showErrorMessage(
-      `Cannot set font size to "${defaultFontSize}". Please set "${defaultFontSizeType}" to an integer between ${minFontSize} and ${maxFontSize} in your user settings.`
+      `Cannot set font size to "${defaultFontSize}".
+       Please set "${defaultFontSizeType}" to an integer
+       between ${minFontSize} and ${maxFontSize} in your user settings.`
     );
   }
 
   context.subscriptions.push(
-    commands.registerCommand("fontshortcuts.increaseEditorFontSize", () =>
-      increaseFontSize(false)
-    ),
-
-    commands.registerCommand("fontshortcuts.increaseTerminalFontSize", () =>
-      increaseFontSize(true)
-    ),
+    commands.registerCommand("fontshortcuts.increaseEditorFontSize", increaseEditorFontSize),
+    commands.registerCommand("fontshortcuts.increaseTerminalFontSize", increaseEditorFontSize),
 
     commands.registerCommand("fontshortcuts.increaseFontSize", () =>
-      Promise.all([increaseFontSize(false), increaseFontSize(true)])
+      Promise.all([
+        increaseEditorFontSize,
+        increaseTerminalFontSize
+      ])
     ),
 
-    commands.registerCommand("fontshortcuts.decreaseEditorFontSize", () =>
-      decreaseFontSize(false)
-    ),
-
-    commands.registerCommand("fontshortcuts.decreaseTerminalFontSize", () =>
-      decreaseFontSize(true)
-    ),
-
+    commands.registerCommand("fontshortcuts.decreaseEditorFontSize", decreaseEditorFontSize),
+    commands.registerCommand("fontshortcuts.decreaseTerminalFontSize", decreaseTerminalFontSize),
     commands.registerCommand("fontshortcuts.decreaseFontSize", () =>
-      Promise.all([decreaseFontSize(false), decreaseFontSize(true)])
+      Promise.all([
+        decreaseEditorFontSize,
+        decreaseTerminalFontSize
+      ])
     ),
 
-    commands.registerCommand("fontshortcuts.resetEditorFontSize", () =>
-      resetFontSize(false)
-    ),
-
-    commands.registerCommand("fontshortcuts.resetTerminalFontSize", () =>
-      resetFontSize(true)
-    ),
-
+    commands.registerCommand("fontshortcuts.resetEditorFontSize", () => resetFontSize(false)),
+    commands.registerCommand("fontshortcuts.resetTerminalFontSize", () => resetFontSize(true)),
     commands.registerCommand("fontshortcuts.resetFontSize", () =>
-      Promise.all([resetFontSize(false), resetFontSize(true)])
+      Promise.all([
+        resetFontSize(false),
+        resetFontSize(true
+      )])
     )
   );
 }
 
-export function deactivate() {}
+export function deactivate() {
+  // should unregister
+}
